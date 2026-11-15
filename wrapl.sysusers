@@ -1,0 +1,2 @@
+# wrapl reads the RAPL counters as this user, never as root (see wrapl.service)
+u wrapl - "wrapl RAPL power publisher" - -

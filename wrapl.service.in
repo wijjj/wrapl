@@ -1,26 +1,40 @@
 [Unit]
 Description=RAPL CPU power as one-second averages in /run/wrapl/power.json
 Documentation=https://github.com/wijjj/wrapl
+# no RAPL, nothing to do: skip instead of failing and restarting forever
+ConditionPathExistsGlob=/sys/class/powercap/intel-rapl:*
 
 [Service]
 ExecStart=@SBINDIR@/wrapl
+# 1: no counters at start, 2: usage; neither gets better by retrying. 3 (every counter lost, e.g. the driver was
+# reloaded and reset the permissions) does: the restart grants them again.
 Restart=on-failure
 RestartSec=5
+RestartPreventExitStatus=1 2
+
+# The counters are root-only (mode 0400). Rather than run wrapl as root, wrapl-perms lets the wrapl group read them
+# while the service runs, and restores their original owner, group and mode when it stops. The "+" runs just these
+# two commands with full privileges.
+User=wrapl
+Group=wrapl
+ExecStartPre=+@SBINDIR@/wrapl-perms grant
+ExecStopPost=+@SBINDIR@/wrapl-perms revoke
 
 # /run/wrapl is world-readable and removed when the service stops
 RuntimeDirectory=wrapl
 RuntimeDirectoryMode=0755
 UMask=0022
 
-# Root only to read the counters (root-owned, mode 0400; no capability needed). Everything else is taken away.
 CapabilityBoundingSet=
 AmbientCapabilities=
 NoNewPrivileges=yes
+PrivateUsers=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
+PrivateIPC=yes
 RestrictAddressFamilies=none
 IPAddressDeny=any
 ProtectKernelTunables=yes
@@ -40,6 +54,7 @@ RemoveIPC=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
+DevicePolicy=closed
 
 [Install]
 WantedBy=multi-user.target

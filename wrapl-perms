@@ -1,0 +1,42 @@
+#!/bin/sh
+# wrapl-perms grant|revoke
+#
+# Lets the wrapl group read the RAPL energy counters while wrapl.service runs (grant), and afterwards puts back
+# exactly the owner, group and mode each counter had before (revoke). The unit runs both with full privileges ("+").
+# The originals are recorded in a root-only file under /run: like the sysfs permissions, it does not outlive a reboot.
+set -eu
+root=${WRAPL_POWERCAP:-/sys/class/powercap}
+state=${WRAPL_PERMS_STATE:-/run/wrapl.perms}
+group=${WRAPL_GROUP:-wrapl}
+
+case ${1-} in
+grant)
+	# a second grant without a revoke in between keeps the first record: that one holds the originals
+	if [ ! -e "$state" ]; then
+		(
+			umask 077
+			for f in "$root"/intel-rapl:*/energy_uj; do
+				if [ -e "$f" ]; then stat -c '%n %u %g %a' "$f"; fi
+			done >"$state.new"
+		)
+		mv "$state.new" "$state"
+	fi
+	for f in "$root"/intel-rapl:*/energy_uj; do
+		if [ -e "$f" ]; then chgrp "$group" "$f" && chmod g+r "$f"; fi
+	done
+	;;
+revoke)
+	[ -e "$state" ] || exit 0
+	status=0
+	while read -r f uid gid mode; do
+		# a counter that is gone (driver unloaded) comes back with the kernel's defaults
+		if [ -e "$f" ]; then chown "$uid:$gid" "$f" && chmod "$mode" "$f" || status=1; fi
+	done <"$state"
+	rm -f "$state"
+	exit $status
+	;;
+*)
+	echo "usage: wrapl-perms grant|revoke" >&2
+	exit 2
+	;;
+esac
