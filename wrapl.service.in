@@ -1,0 +1,45 @@
+[Unit]
+Description=RAPL CPU power as one-second averages in /run/wrapl/power.json
+Documentation=https://github.com/wijjj/wrapl
+
+[Service]
+ExecStart=@SBINDIR@/wrapl
+Restart=on-failure
+RestartSec=5
+
+# /run/wrapl is world-readable and removed when the service stops
+RuntimeDirectory=wrapl
+RuntimeDirectoryMode=0755
+UMask=0022
+
+# Root only to read the counters (root-owned, mode 0400; no capability needed). Everything else is taken away.
+CapabilityBoundingSet=
+AmbientCapabilities=
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=none
+IPAddressDeny=any
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
